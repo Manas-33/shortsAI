@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Wand2 } from "lucide-react"
+import LoginButton from "./LoginLogoutButton"
 
 export default function Header() {
   return (
@@ -38,10 +39,11 @@ export default function Header() {
           </nav>
           <div className="flex items-center space-x-4">
             <ThemeToggle />
-            <Button variant="outline" className="hidden sm:inline-flex">
+            {/* <Button variant="outline" className="hidden sm:inline-flex">
               Log in
-            </Button>
-            <Button>Sign up</Button>
+            </Button> */}
+            <LoginButton/>
+            {/* <Button>Sign up</Button> */}
           </div>
         </div>
       </div>

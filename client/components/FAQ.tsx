@@ -40,31 +40,31 @@ export default function FAQ() {
               </div>
             </div>
             <div className="mx-auto max-w-3xl space-y-4 py-12">
-              <div className="rounded-lg border p-4 bg-white">
+              <div className="rounded-lg border border-secondary-foreground p-4">
                 <button className="flex w-full items-center justify-between">
                   <span className="font-semibold">What file formats do you support?</span>
                   <ChevronDown className="h-5 w-5" />
                 </button>
-                <div className="mt-2 text-gray-500 dark:text-gray-400">
+                <div className="mt-2 text-muted-foreground">
                   We support most common audio and video formats including MP3, WAV, MP4, and MOV.
                 </div>
               </div>
-              <div className="rounded-lg border p-4 bg-white">
+              <div className="rounded-lg border border-secondary-foreground p-4">
                 <button className="flex w-full items-center justify-between">
                   <span className="font-semibold">How long does it take to process a video?</span>
                   <ChevronDown className="h-5 w-5" />
                 </button>
-                <div className="mt-2 text-gray-500 dark:text-gray-400">
+                <div className="mt-2 text-muted-foreground">
                   Processing time varies based on the length of your content, but typically takes 5-10 minutes for a
                   1-hour podcast.
                 </div>
               </div>
-              <div className="rounded-lg border p-4 bg-white">
+              <div className="rounded-lg border border-secondary-foreground p-4">
                 <button className="flex w-full items-center justify-between">
                   <span className="font-semibold">Which languages do you support?</span>
                   <ChevronDown className="h-5 w-5" />
                 </button>
-                <div className="mt-2 text-gray-500 dark:text-gray-400">
+                <div className="mt-2 text-muted-foreground">
                   We support over 30 languages including English, Spanish, French, German, Chinese, and Japanese.
                 </div>
               </div>
