@@ -22,11 +22,11 @@ def get_video_streams(url):
                 "type": stream_type,
                 "fps": stream.fps
             })
-
         return streams_info
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         return []
+
 
 def yt_downloader(url, video_choice):
     try:
@@ -37,20 +37,22 @@ def yt_downloader(url, video_choice):
 
         selected_stream = video_streams[video_choice]
 
-        if not os.path.exists('videos'):
-            os.makedirs('videos')
-
-        print(f"Downloading video: {yt.title}")
+        videos_dir = os.path.join(os.path.dirname(
+            os.path.dirname(__file__)), 'videos')
+        if not os.path.exists(videos_dir):
+            os.makedirs(videos_dir)
+        yt_title = yt.title
+        print(f"Downloading video: {yt_title}")
         video_file = selected_stream.download(
-            output_path='videos', filename_prefix="video_")
+            output_path=videos_dir, filename_prefix="video_")
 
         if not selected_stream.is_progressive:
             print("Downloading audio...")
             audio_file = audio_stream.download(
-                output_path='videos', filename_prefix="audio_")
+                output_path=videos_dir, filename_prefix="audio_")
 
             print("Merging video and audio...")
-            output_file = os.path.join('videos', f"{yt.title}.mp4")
+            output_file = os.path.join(videos_dir, f"{yt_title}.mp4")
             stream = ffmpeg.input(video_file)
             audio = ffmpeg.input(audio_file)
             stream = ffmpeg.output(
@@ -62,9 +64,9 @@ def yt_downloader(url, video_choice):
         else:
             output_file = video_file
 
-        print(f"Downloaded: {yt.title} to 'videos' folder")
+        print(f"Downloaded: {yt_title} to '{videos_dir}' folder")
         print(f"File path: {output_file}")
-        return output_file
+        return output_file, yt_title
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
