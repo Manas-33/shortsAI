@@ -1,12 +1,28 @@
 import os
 from pytubefix import YouTube
 import ffmpeg
+import re
+import ssl
+
+# for macos
+def fix_ssl_certificate():
+    # Create unverified SSL context to work around certificate issues
+    ssl._create_default_https_context = ssl._create_unverified_context
+    print("SSL certificate verification disabled for YouTube downloads")
+
 
 def get_video_size(stream):
     return stream.filesize / (1024 * 1024)
 
+
+def sanitize_filename(filename):
+    sanitized = re.sub(r'[\\/*?:"<>|]', '_', filename)
+    return sanitized
+
+
 def get_video_streams(url):
     try:
+        fix_ssl_certificate()
         yt = YouTube(url)
         video_streams = yt.streams.filter(
             type="video").order_by('resolution').desc()
@@ -30,6 +46,8 @@ def get_video_streams(url):
 
 def yt_downloader(url, video_choice):
     try:
+        # for macos
+        fix_ssl_certificate()
         yt = YouTube(url)
         video_streams = yt.streams.filter(
             type="video").order_by('resolution').desc()
@@ -52,7 +70,8 @@ def yt_downloader(url, video_choice):
                 output_path=videos_dir, filename_prefix="audio_")
 
             print("Merging video and audio...")
-            output_file = os.path.join(videos_dir, f"{yt_title}.mp4")
+            sanitized_title = sanitize_filename(yt.title)
+            output_file = os.path.join(videos_dir, f"{sanitized_title}.mp4")
             stream = ffmpeg.input(video_file)
             audio = ffmpeg.input(audio_file)
             stream = ffmpeg.output(
@@ -63,6 +82,13 @@ def yt_downloader(url, video_choice):
             os.remove(audio_file)
         else:
             output_file = video_file
+            sanitized_title = sanitize_filename(yt.title)
+            new_output_file = os.path.join(
+                videos_dir, f"{sanitized_title}.mp4")
+            if os.path.exists(new_output_file):
+                os.remove(new_output_file)
+            os.rename(output_file, new_output_file)
+            output_file = new_output_file
 
         print(f"Downloaded: {yt_title} to '{videos_dir}' folder")
         print(f"File path: {output_file}")
