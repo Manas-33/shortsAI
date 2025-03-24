@@ -2,6 +2,7 @@ audioop-lts
 certifi
 av
 Django
+django-cors-headers
 ffmpeg==1.4 
 ffmpeg-python==0.2.0
 moviepy

@@ -5,6 +5,8 @@ import re
 import ssl
 
 # for macos
+
+
 def fix_ssl_certificate():
     # Create unverified SSL context to work around certificate issues
     ssl._create_default_https_context = ssl._create_unverified_context
@@ -17,6 +19,7 @@ def get_video_size(stream):
 
 def sanitize_filename(filename):
     sanitized = re.sub(r'[\\/*?:"<>|]', '_', filename)
+    sanitized = sanitized.replace(' ', '_')
     return sanitized
 
 
@@ -92,7 +95,7 @@ def yt_downloader(url, video_choice):
 
         print(f"Downloaded: {yt_title} to '{videos_dir}' folder")
         print(f"File path: {output_file}")
-        return output_file, yt_title
+        return output_file, sanitized_title
 
     except Exception as e:
         print(f"An error occurred: {str(e)}")
