@@ -104,7 +104,7 @@ export function AppSidebar({ uploadedVideos = [], ...props }: React.ComponentPro
             <Command className="size-4" />
           </div>
           <div className="grid text-left text-sm leading-tight">
-            <span className="truncate font-semibold">PodcastClips</span>
+            <span className="truncate font-semibold">Moment AI</span>
             <span className="truncate text-xs">Shorts Generator</span>
           </div>
         </div>
