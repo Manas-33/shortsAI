@@ -47,8 +47,12 @@ const fileUploadSchema = z.object({
     ),
 })
 
-export function PodcastForm() {
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
+interface PodcastFormProps {
+  onSubmit: (url: string, isYoutubeUrl: boolean) => Promise<void>;
+  isLoading: boolean;
+}
+
+export function PodcastForm({ onSubmit, isLoading }: PodcastFormProps) {
   const [activeTab, setActiveTab] = React.useState("youtube")
   const { toast } = useToast()
 
@@ -64,71 +68,14 @@ export function PodcastForm() {
   })
 
   async function onYoutubeSubmit(values: z.infer<typeof youtubeUrlSchema>) {
-    setIsSubmitting(true)
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      console.log(values)
-      toast({
-        title: "Processing started",
-        description: "We're generating shorts from your YouTube video",
-      })
-
-      setIsSubmitting(false)
-
-      window.dispatchEvent(
-        new CustomEvent("reelsGenerated", {
-          detail: {
-            source: values.youtubeUrl,
-            count: 5,
-          },
-        }),
-      )
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Something went wrong",
-        description: "Please try again later",
-        variant: "destructive",
-      })
-      setIsSubmitting(false)
-    }
+    await onSubmit(values.youtubeUrl, true);
   }
 
   async function onFileSubmit(values: z.infer<typeof fileUploadSchema>) {
-    setIsSubmitting(true)
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      console.log(values.file[0])
-      toast({
-        title: "Processing started",
-        description: `We're generating shorts from "${values.file[0].name}"`,
-      })
-
-      setIsSubmitting(false)
-
-      window.dispatchEvent(
-        new CustomEvent("reelsGenerated", {
-          detail: {
-            source: values.file[0].name,
-            count: 3,
-          },
-        }),
-      )
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: "Something went wrong",
-        description: "Please try again later",
-        variant: "destructive",
-      })
-      setIsSubmitting(false)
-    }
+    // For file upload, you'd typically use FormData to upload the file
+    // But for this example, we're just passing the file name
+    const fileURL = URL.createObjectURL(values.file[0]);
+    await onSubmit(fileURL, false);
   }
 
   return (
@@ -150,8 +97,8 @@ export function PodcastForm() {
                     <FormControl>
                       <div className="flex gap-2">
                         <Input placeholder="https://youtube.com/watch?v=..." {...field} />
-                        <Button type="submit" disabled={isSubmitting}>
-                          {isSubmitting ? (
+                        <Button type="submit" disabled={isLoading}>
+                          {isLoading ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Processing
@@ -190,8 +137,8 @@ export function PodcastForm() {
                           onChange={(e) => onChange(e.target.files)}
                           {...rest}
                         />
-                        <Button type="submit" disabled={isSubmitting}>
-                          {isSubmitting ? (
+                        <Button type="submit" disabled={isLoading}>
+                          {isLoading ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Processing
@@ -209,7 +156,6 @@ export function PodcastForm() {
                     <FormMessage />
                   </FormItem>
                 )}
-                
               />
             </form>
           </Form>

@@ -1,91 +1,112 @@
 "use client"
 
 import * as React from "react"
-import { Play, Share2 } from "lucide-react"
+import { Play, Share2, Download } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 
-interface Reel {
-  id: string
-  title: string
-  duration: string
-  thumbnail: string
+interface Clip {
+  clip_number: number
+  url: string
 }
 
-export function ReelsResults() {
-  const [reels, setReels] = React.useState<Reel[]>([])
-  const [source, setSource] = React.useState<string>("")
-  const [isVisible, setIsVisible] = React.useState(false)
+interface ApiResponse {
+  message: string
+  video_path: string
+  clips: Clip[]
+}
 
-  React.useEffect(() => {
-    const handleReelsGenerated = (event: CustomEvent<{ source: string; count: number }>) => {
-      const { source, count } = event.detail
-      setSource(source)
+interface ReelsResultsProps {
+  apiResponse: ApiResponse | null
+}
 
-      // Generate mock reels data
-      const newReels = Array.from({ length: count }).map((_, i) => ({
-        id: `reel-${Date.now()}-${i}`,
-        title: `Engaging clip ${i + 1} from podcast`,
-        duration: `${Math.floor(Math.random() * 30) + 10}s`,
-        thumbnail: `/placeholder.svg?height=180&width=320&text=Reel ${i + 1}`,
-      }))
+export function ReelsResults({ apiResponse }: ReelsResultsProps) {
+  const [currentPlayingIndex, setCurrentPlayingIndex] = React.useState<number | null>(null)
+  const videoRefs = React.useRef<(HTMLVideoElement | null)[]>([])
 
-      setReels(newReels)
-      setIsVisible(true)
-
-      // Scroll to results
-      setTimeout(() => {
-        document.getElementById("results-section")?.scrollIntoView({ behavior: "smooth" })
-      }, 100)
+  // Function to handle play button click
+  const handlePlay = (index: number) => {
+    // Pause any currently playing video
+    if (currentPlayingIndex !== null && currentPlayingIndex !== index) {
+      const currentVideo = videoRefs.current[currentPlayingIndex]
+      if (currentVideo) {
+        currentVideo.pause()
+      }
     }
-
-    window.addEventListener("reelsGenerated", handleReelsGenerated as EventListener)
-
-    return () => {
-      window.removeEventListener("reelsGenerated", handleReelsGenerated as EventListener)
+    
+    // Play the selected video
+    const video = videoRefs.current[index]
+    if (video) {
+      if (video.paused) {
+        video.play()
+        setCurrentPlayingIndex(index)
+      } else {
+        video.pause()
+        setCurrentPlayingIndex(null)
+      }
     }
-  }, [])
+  }
 
-  if (!isVisible) return null
+  // Function to handle download
+  const handleDownload = (url: string, clipNumber: number) => {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `clip-${clipNumber}.mp4`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  if (!apiResponse || !apiResponse.clips || apiResponse.clips.length === 0) return null
+
+  // Set up videoRefs array based on clips length
+  if (videoRefs.current.length !== apiResponse.clips.length) {
+    videoRefs.current = Array(apiResponse.clips.length).fill(null)
+  }
 
   return (
     <div id="results-section" className="mt-10">
       <div className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight">Generated Shorts</h2>
         <p className="text-muted-foreground">
-          {reels.length} shorts generated from {source}
+          {apiResponse.clips.length} shorts generated successfully
         </p>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {reels.map((reel) => (
-          <Card key={reel.id} className="overflow-hidden">
+        {apiResponse.clips.map((clip, index) => (
+          <Card key={`clip-${clip.clip_number}`} className="overflow-hidden">
             <CardHeader className="p-0">
               <div className="relative aspect-video bg-muted">
-                <img
-                  src={reel.thumbnail || "/placeholder.svg"}
-                  alt={reel.title}
+                <video
+                  ref={(el) => {
+                    videoRefs.current[index] = el;
+                  }}
+                  src={clip.url}
                   className="h-full w-full object-cover"
+                  onEnded={() => setCurrentPlayingIndex(null)}
+                  playsInline
                 />
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center" onClick={() => handlePlay(index)}>
                   <Button size="icon" variant="secondary" className="h-12 w-12 rounded-full opacity-90">
                     <Play className="h-6 w-6" />
                   </Button>
                 </div>
-                <div className="absolute bottom-2 right-2 rounded bg-black/70 px-2 py-1 text-xs text-white">
-                  {reel.duration}
-                </div>
               </div>
             </CardHeader>
             <CardContent className="p-4">
-              <CardTitle className="line-clamp-2 text-base">{reel.title}</CardTitle>
+              <CardTitle className="line-clamp-2 text-base">Clip {clip.clip_number}</CardTitle>
             </CardContent>
             <CardFooter className="flex justify-between p-4 pt-0">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => handleDownload(clip.url, clip.clip_number)}>
+                <Download className="mr-2 h-4 w-4" />
                 Download
               </Button>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => {
+                navigator.clipboard.writeText(clip.url);
+                // Could add a toast notification here
+              }}>
                 <Share2 className="h-4 w-4" />
               </Button>
             </CardFooter>

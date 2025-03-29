@@ -5,7 +5,7 @@ import ffmpeg
 def get_video_size(stream):
     return stream.filesize / (1024 * 1024)
 
-def get_video_streams(url):
+def get_yt_video_streams(url):
     try:
         yt = YouTube(url)
         video_streams = yt.streams.filter(
