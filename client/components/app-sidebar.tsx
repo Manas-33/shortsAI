@@ -99,6 +99,7 @@ export function AppSidebar({ uploadedVideos = [], ...props }: React.ComponentPro
         data: { user },
       } = await supabase.auth.getUser();
       console.log("User data in AppSidebar:", user);
+      console.log("User avatar in AppSidebar:", user?.user_metadata.avatar_url );
 
       if (user) {
         data.user = {
