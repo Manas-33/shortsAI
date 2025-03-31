@@ -1,13 +1,21 @@
 import cv2
 import numpy as np
-from moviepy import *
+# from moviepy import *
+from moviepy.editor import VideoFileClip
 from .face_detection_utils import detect_faces_and_speakers, Frames
 import os
 global Fps
+from django.conf import settings
 
+VIDEO_DIR = os.path.join(settings.BASE_DIR, "api", "clips")
+AUDIO_DIR = settings.BASE_DIR
 
 def crop_to_vertical(input_video_path, output_video_path):
     try:
+        input_video_path = os.path.join(VIDEO_DIR, input_video_path)
+        # output_video_path = os.path.join(VIDEO_DIR, output_video_name)
+
+        print("Input video path:", input_video_path)
         # Check if input file exists
         if not os.path.exists(input_video_path):
             print(f"Error: Input video file not found: {input_video_path}")
@@ -164,11 +172,13 @@ def crop_to_vertical(input_video_path, output_video_path):
 
 def combine_videos(video_with_audio, video_without_audio, output_filename):
     try:
+        video_with_audio = os.path.join(VIDEO_DIR, video_with_audio)
         # Check if input files exist
         if not os.path.exists(video_with_audio):
             print(f"Error: Audio source file not found: {video_with_audio}")
             return False
-
+        video_without_audio = os.path.join(AUDIO_DIR, video_without_audio)
+        print(video_without_audio)
         if not os.path.exists(video_without_audio):
             print(f"Error: Video source file not found: {video_without_audio}")
             return False

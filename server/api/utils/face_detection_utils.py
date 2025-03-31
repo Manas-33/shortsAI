@@ -5,11 +5,14 @@ import wave
 import contextlib
 from pydub import AudioSegment
 import os
+from django.conf import settings
 
 # Update paths to the model files
-prototxt_path = "/Users/manas/Documents/2025/shortsAI/server/api/models/deploy.prototxt"
-model_path = "/Users/manas/Documents/2025/shortsAI/server/api/models/res10_300x300_ssd_iter_140000_fp16.caffemodel"
-temp_audio_path = "temp_audio.wav"
+prototxt_path = os.path.join(settings.BASE_DIR, "api/models/deploy.prototxt")
+print("protocol path" , prototxt_path)
+model_path = os.path.join(settings.BASE_DIR, "api/models/res10_300x300_ssd_iter_140000_fp16.caffemodel")
+print("model path" , model_path)
+temp_audio_path = os.path.join(settings.BASE_DIR, "temp_audio.wav")
 
 # Load DNN model
 net = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
@@ -54,12 +57,10 @@ def detect_faces_and_speakers(input_video_path, output_video_path):
 
     cap = cv2.VideoCapture(input_video_path)
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_video_path, fourcc, 30.0,
-                          (int(cap.get(3)), int(cap.get(4))))
+    out = cv2.VideoWriter(output_video_path, fourcc, 30.0, (int(cap.get(3)), int(cap.get(4))))
 
     frame_duration_ms = 30  # 30ms frames
-    audio_generator = process_audio_frame(
-        audio_data, sample_rate, frame_duration_ms)
+    audio_generator = process_audio_frame(audio_data, sample_rate, frame_duration_ms)
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -67,8 +68,7 @@ def detect_faces_and_speakers(input_video_path, output_video_path):
             break
 
         h, w = frame.shape[:2]
-        blob = cv2.dnn.blobFromImage(cv2.resize(
-            frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
+        blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0))
         net.setInput(blob)
         detections = net.forward()
 
@@ -78,8 +78,6 @@ def detect_faces_and_speakers(input_video_path, output_video_path):
         is_speaking_audio = voice_activity_detection(audio_frame, sample_rate)
         MaxDif = 0
         Add = []
-        detected_face = False  # Flag to track if any face was detected
-        x, y, x1, y1 = 0, 0, 0, 0  # Default values
         for i in range(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
             if confidence > 0.3:  # Confidence threshold
@@ -95,44 +93,34 @@ def detect_faces_and_speakers(input_video_path, output_video_path):
                 lip_distance = abs((y + 2 * face_height // 3) - (y1))
                 Add.append([[x, y, x1, y1], lip_distance])
 
-                MaxDif == max(lip_distance, MaxDif)
-        for i in range(detections.shape[2]):
-            confidence = detections[0, 0, i, 2]
-            if confidence > 0.3:  # Confidence threshold
-                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-                (x, y, x1, y1) = box.astype("int")
-                face_width = x1 - x
-                face_height = y1 - y
+                MaxDif = max(lip_distance, MaxDif)
+        
+        # Find the face with maximum lip distance
+        selected_face = None
+        for face_data in Add:
+            if face_data[1] >= MaxDif:
+                selected_face = face_data[0]
+                break
 
-                # Draw bounding box
-                cv2.rectangle(frame, (x, y), (x1, y1), (0, 255, 0), 2)
-
-                # Assuming lips are approximately at the bottom third of the face
-                lip_distance = abs((y + 2 * face_height // 3) - (y1))
-                print(lip_distance)
-
-                # Combine visual and audio cues
-                if lip_distance >= MaxDif and is_speaking_audio:  # Adjust the threshold as needed
-                    cv2.putText(frame, "Active Speaker", (x, y - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                    detected_face = True  # A speaker face was detected
-                if lip_distance >= MaxDif:
-                    detected_face = True  # A face was detected
-                    break
-
-        # Only append if a face was actually detected
-        if detected_face:
-            Frames.append([x, y, x1, y1])
+        if selected_face:
+            Frames.append(selected_face)
+        else:
+            # If no face is selected, use the last known face position or a default
+            if Frames:
+                Frames.append(Frames[-1])
+            else:
+                # Default to center of frame if no faces detected
+                center_x = w // 2
+                center_y = h // 2
+                face_size = min(w, h) // 4
+                Frames.append([center_x - face_size, center_y - face_size, 
+                             center_x + face_size, center_y + face_size])
 
         out.write(frame)
-        cv2.imshow('Frame', frame)
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
+    print("Face Detection Completed")
     cap.release()
     out.release()
-    cv2.destroyAllWindows()
     os.remove(temp_audio_path)
 
 

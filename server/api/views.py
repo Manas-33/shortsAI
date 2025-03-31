@@ -7,6 +7,8 @@ from .utils.transcript_utils import get_transcript
 from .utils.highlight_utils import get_highlight
 from .utils.edit_utils import crop_clips
 from .utils.crop_utils import crop_to_vertical, combine_videos
+from django.conf import settings
+import os
 
 
 def hello_world(request):
@@ -40,10 +42,14 @@ def get_shorts(request):
         video_choice = int(json.loads(request.body)['video_choice'])
         if url:
             try:
-                video, title = yt_downloader(url, video_choice)
-                transcript = get_transcript(url)
-                format_transcript = formatted_transcript(transcript)
-                times = get_highlight(format_transcript)
+                # video, title = yt_downloader(url, video_choice)
+                # transcript = get_transcript(url)
+                # format_transcript = formatted_transcript(transcript)
+                # times = get_highlight(format_transcript)
+                # print(times)
+                title = "test"
+                video = os.path.join(settings.BASE_DIR, "api/videos/How_Light_and_Code_Can_Transform_a_City___Leo_Villareal___TED.mp4")
+                times = [(214, 235), (481, 520)]
                 i = 1
                 for start, end in times:
                     output_file = f"{i}_plain_{title}.mp4"
