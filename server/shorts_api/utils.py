@@ -11,6 +11,7 @@ def upload_to_cloudinary(file_path, public_id_prefix='shorts'):
     """
     Upload a video file to Cloudinary and return the URL
     """
+    print("Uploading images in cloudinary.")
     try:
         # Get environment variables directly
         cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
@@ -21,11 +22,6 @@ def upload_to_cloudinary(file_path, public_id_prefix='shorts'):
         logger.info(f"Direct env - Cloudinary cloud_name: {cloud_name}")
         logger.info(f"Direct env - Cloudinary API key: {api_key}")
         logger.info(f"Direct env - Cloudinary API secret: {api_secret[:5]}..." if api_secret else 'None')
-        
-        # Also log from settings for comparison
-        logger.info(f"Settings - Cloudinary cloud_name: {settings.CLOUDINARY['cloud_name']}")
-        logger.info(f"Settings - Cloudinary API key: {settings.CLOUDINARY['api_key']}")
-        logger.info(f"Settings - Cloudinary API secret: {settings.CLOUDINARY['api_secret'][:5]}..." if settings.CLOUDINARY['api_secret'] else 'None')
         
         # Configure cloudinary with direct env vars
         cloudinary.config(
@@ -52,7 +48,7 @@ def upload_to_cloudinary(file_path, public_id_prefix='shorts'):
             overwrite=True,
             folder="shorts"
         )
-        
+        print("Upload complete.")
         return {
             'url': upload_result['secure_url'],
             'public_id': upload_result['public_id']

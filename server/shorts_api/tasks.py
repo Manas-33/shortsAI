@@ -29,7 +29,7 @@ def process_video_task(video_processing_id):
         ensure_directories()
         
         # For testing without processing the entire pipeline
-        test_mode = os.getenv('TEST_MODE', 'False').lower() == 'true'
+        test_mode = False
         
         if test_mode:
             # In test mode, we'll generate multiple fake shorts
