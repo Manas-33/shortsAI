@@ -14,14 +14,17 @@ export default function ProtectedRoute({ children }) {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session && pathname !== "/") {
+        // If not authenticated, redirect to login
         router.push("/login");
-      } else if (pathname !== "/") {
+      } else if (session && pathname === "/") {
+        // If authenticated and on home page, redirect to dashboard
         router.push("/dashboard");
       }
+      // Otherwise, allow navigation to any authenticated route
     }
 
     checkUser();
-  }, [pathname]);
+  }, [pathname, router]);
 
   return children;
 }
