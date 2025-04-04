@@ -17,7 +17,7 @@ import { ReelsResults } from "@//components/reels-results"
 import { useToast } from "@/components/ui/use-toast"
 import { createClient } from "@/utils/supabase/client"
 import Link from "next/link"
-import { History } from "lucide-react"
+import { History, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useSearchParams } from "next/navigation"
 
@@ -325,6 +325,16 @@ export default function Page() {
                     <h2 className="text-xl font-semibold mb-4">
                       {idFromUrl ? "Selected Video" : "Most Recent Video"}
                     </h2>
+                    <div className="flex justify-end mb-4">
+                      {apiResponse && apiResponse.processing.cloudinary_urls && (
+                        <Button asChild variant="outline" size="sm">
+                          <Link href={`/dashboard/edit?id=${apiResponse.processing.id}`}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Video
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                     <ReelsResults apiResponse={transformedApiResponse} />
                   </div>
                 )}

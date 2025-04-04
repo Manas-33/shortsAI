@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { ArrowLeft, ExternalLink, Video } from "lucide-react"
+import { ArrowLeft, ExternalLink, Video, Edit as EditIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface ProcessingData {
@@ -148,6 +148,69 @@ export default function HistoryPage() {
     return groups;
   }, {});
 
+  // Function to extract video ID from YouTube URL
+  const getYouTubeVideoId = (url: string): string | null => {
+    try {
+      const urlObj = new URL(url);
+      
+      if (urlObj.hostname === 'youtu.be') {
+        return urlObj.pathname.substring(1);
+      }
+      
+      if (urlObj.hostname === 'www.youtube.com' || urlObj.hostname === 'youtube.com') {
+        if (urlObj.pathname === '/watch') {
+          return urlObj.searchParams.get('v');
+        }
+        
+        if (urlObj.pathname.startsWith('/embed/') || urlObj.pathname.startsWith('/v/')) {
+          return urlObj.pathname.split('/')[2];
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  // Function to get YouTube thumbnail URL
+  const getYouTubeThumbnail = (url: string): string => {
+    const videoId = getYouTubeVideoId(url);
+    if (videoId) {
+      return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+    }
+    return '/placeholder-video.jpg'; // Fallback image
+  };
+  
+  // Function to get a simplified title from the URL
+  const getVideoTitle = (url: string): string => {
+    try {
+      const videoId = getYouTubeVideoId(url);
+      if (videoId) {
+        // For YouTube, we're extracting what might be a title from the URL path
+        // In a real app, you'd probably get this from YouTube API or store it when processing
+        const urlObj = new URL(url);
+        if (urlObj.pathname.includes('watch') && urlObj.searchParams.has('v')) {
+          return `YouTube Video (${videoId})`;
+        }
+        return `YouTube Video (${videoId})`;
+      }
+      
+      // For other URLs, just show the filename or domain
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      
+      if (lastPart && lastPart !== '') {
+        return lastPart;
+      }
+      
+      return urlObj.hostname;
+    } catch (error) {
+      return 'Unknown Video';
+    }
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -219,10 +282,27 @@ export default function HistoryPage() {
                         <div className="space-y-4">
                           <div>
                             <h3 className="font-medium">Source</h3>
-                            <a href={selectedVideo.youtube_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 flex items-center">
-                              {selectedVideo.youtube_url}
-                              <ExternalLink className="ml-1 h-3 w-3" />
-                            </a>
+                            <div className="flex items-start gap-3 mt-1">
+                              <div className="w-24 h-14 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                                <img 
+                                  src={getYouTubeThumbnail(selectedVideo.youtube_url)} 
+                                  alt="Video thumbnail" 
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    // Fallback if image fails to load
+                                    (e.target as HTMLImageElement).src = '/placeholder-video.jpg';
+                                  }}
+                                />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  {getVideoTitle(selectedVideo.youtube_url)}
+                                </span>
+                                <a href={selectedVideo.youtube_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 flex items-center text-sm">
+                                  Original Video <ExternalLink className="ml-1 h-3 w-3" />
+                                </a>
+                              </div>
+                            </div>
                           </div>
                           
                           <div>
@@ -246,14 +326,22 @@ export default function HistoryPage() {
                                     />
                                     <div className="flex justify-between items-center">
                                       <span>Clip {index + 1}</span>
-                                      <a 
-                                        href={clip.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        className="text-blue-500 text-sm"
-                                      >
-                                        View
-                                      </a>
+                                      <div className="flex gap-2">
+                                        <a 
+                                          href={clip.url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer" 
+                                          className="text-blue-500 text-sm"
+                                        >
+                                          View
+                                        </a>
+                                        <Link
+                                          href={`/dashboard/edit?id=${selectedVideo.id}&clip=${index}`}
+                                          className="text-blue-500 text-sm ml-2"
+                                        >
+                                          Edit
+                                        </Link>
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -265,9 +353,17 @@ export default function HistoryPage() {
                       <CardFooter className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => setSelectedVideo(null)}>Close</Button>
                         {selectedVideo.status === 'COMPLETED' && (
-                          <Button asChild>
-                            <Link href={`/dashboard?id=${selectedVideo.id}`}>View in Dashboard</Link>
-                          </Button>
+                          <>
+                            <Button asChild variant="outline">
+                              <Link href={`/dashboard/edit?id=${selectedVideo.id}`}>
+                                <EditIcon className="h-4 w-4 mr-2" />
+                                Edit Video
+                              </Link>
+                            </Button>
+                            <Button asChild>
+                              <Link href={`/dashboard?id=${selectedVideo.id}`}>View in Dashboard</Link>
+                            </Button>
+                          </>
                         )}
                       </CardFooter>
                     </Card>
@@ -299,8 +395,33 @@ export default function HistoryPage() {
                           <TableBody>
                             {videos.map((video) => (
                               <TableRow key={video.id}>
-                                <TableCell className="max-w-[200px] truncate">
-                                  {video.youtube_url}
+                                <TableCell className="min-w-[200px]">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-16 h-9 rounded overflow-hidden bg-gray-100 flex-shrink-0">
+                                      <img 
+                                        src={getYouTubeThumbnail(video.youtube_url)} 
+                                        alt="Video thumbnail" 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          // Fallback if image fails to load
+                                          (e.target as HTMLImageElement).src = '/placeholder-video.jpg';
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium truncate max-w-[150px]">
+                                        {getVideoTitle(video.youtube_url)}
+                                      </span>
+                                      <a 
+                                        href={video.youtube_url} 
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-500 hover:underline"
+                                      >
+                                        Source Link
+                                      </a>
+                                    </div>
+                                  </div>
                                 </TableCell>
                                 <TableCell>{getStatusBadge(video.status)}</TableCell>
                                 <TableCell>{formatDate(video.created_at)}</TableCell>
@@ -310,13 +431,27 @@ export default function HistoryPage() {
                                     '-'}
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => setSelectedVideo(video)}
-                                  >
-                                    View Details
-                                  </Button>
+                                  <div className="flex justify-end gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => setSelectedVideo(video)}
+                                    >
+                                      View Details
+                                    </Button>
+                                    {video.status === 'COMPLETED' && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        asChild
+                                      >
+                                        <Link href={`/dashboard/edit?id=${video.id}`}>
+                                          <EditIcon className="h-4 w-4 mr-2" />
+                                          Edit
+                                        </Link>
+                                      </Button>
+                                    )}
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             ))}
