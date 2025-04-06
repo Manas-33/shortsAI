@@ -4,7 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import VideoProcessing
 from .serializers import VideoProcessingSerializer, VideoRequestSerializer
-from .tasks import start_processing_video
+from .tasks import process_video_task
 
 # Create your views here.
 
@@ -29,8 +29,8 @@ class ShortsGeneratorView(APIView):
                 status='PENDING'
             )
             
-            # Start processing in the background
-            start_processing_video(video_processing.id)
+            # Start processing using Celery
+            process_video_task.delay(video_processing.id)
             
             # Return the processing record with a 202 Accepted status
             response_serializer = VideoProcessingSerializer(video_processing)

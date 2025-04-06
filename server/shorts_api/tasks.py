@@ -1,5 +1,5 @@
 import os
-import threading
+from celery import shared_task
 from .models import VideoProcessing
 from .utils import upload_to_cloudinary, update_supabase
 from Components.YoutubeDownloader import download_youtube_video
@@ -15,9 +15,10 @@ def ensure_directories():
         if not os.path.exists(directory):
             os.makedirs(directory)
 
+@shared_task
 def process_video_task(video_processing_id):
     """
-    Process a video in a background thread
+    Process a video as a Celery task
     """
     video_processing = VideoProcessing.objects.get(id=video_processing_id)
     
@@ -168,12 +169,3 @@ def process_video_task(video_processing_id):
         video_processing.status = 'FAILED'
         video_processing.error_message = str(e)
         video_processing.save()
-
-def start_processing_video(video_processing_id):
-    """
-    Start a background thread to process the video
-    """
-    thread = threading.Thread(target=process_video_task, args=(video_processing_id,))
-    thread.daemon = True
-    thread.start()
-    return thread 
