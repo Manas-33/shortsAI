@@ -1,10 +1,16 @@
 import os
 from pytubefix import YouTube
 import ffmpeg
+import re
 
 def get_video_size(stream):
 
     return stream.filesize / (1024 * 1024)
+
+def sanitize_filename(filename):
+    sanitized = re.sub(r'[\\/*?:"<>|]', '_', filename)
+    sanitized = sanitized.replace(' ', '_')
+    return sanitized
 
 def download_youtube_video(url):
     try:
@@ -15,6 +21,8 @@ def download_youtube_video(url):
 
         # Automatically select the highest quality stream with reasonable size
         selected_stream = None
+        # total = len(video_streams)
+        # selected_stream = video_streams[total - 1]
         for stream in video_streams:
             size = get_video_size(stream)
             if size < 500:  # Less than 500 MB
@@ -37,9 +45,9 @@ def download_youtube_video(url):
         if not selected_stream.is_progressive:
             print("Downloading audio...")
             audio_file = audio_stream.download(output_path='videos', filename_prefix="audio_")
-
+            sanitized_title = sanitize_filename(yt.title)
             print("Merging video and audio...")
-            output_file = os.path.join('videos', f"{yt.title}.mp4")
+            output_file = os.path.join('videos', f"{sanitized_title}.mp4")
             stream = ffmpeg.input(video_file)
             audio = ffmpeg.input(audio_file)
             stream = ffmpeg.output(stream, audio, output_file, vcodec='libx264', acodec='aac', strict='experimental')

@@ -17,3 +17,5 @@ env/
 .env
 
 videos
+
+db.sqlite3
