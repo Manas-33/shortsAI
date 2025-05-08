@@ -3,16 +3,20 @@ import threading
 import re
 import requests
 from urllib.parse import urlparse
+import tempfile
+import subprocess
 from .models import VideoProcessing, LanguageDubbing
 from .utils import upload_to_cloudinary, update_supabase
 from Components.YoutubeDownloader import download_youtube_video
 from Components.Edit import extractAudio, crop_video, extractAudioDubbed
 from Components.Transcription import transcribeAudio
-from Components.LanguageTasks import GetHighlight
+from Components.LanguageTasks import GetHighlight, GetAllHighlights
+from crop_util import FaceTrackingVideoCropper
 from Components.FaceCrop import crop_to_vertical, combine_videos
 from Components.GenerateCaptions import add_captions
 from Components.Translation import translate_transcript_with_timestamps
 from Components.TextToSpeech import transcript_to_speech, merge_audio_with_video
+
 
 def ensure_directories():
     """Ensure all necessary directories exist"""
@@ -21,66 +25,72 @@ def ensure_directories():
         if not os.path.exists(directory):
             os.makedirs(directory)
 
+
 def process_video_task(video_processing_id):
     """
     Process a video in a background thread
     """
     video_processing = VideoProcessing.objects.get(id=video_processing_id)
-    
+
     try:
         video_processing.status = 'PROCESSING'
         video_processing.save()
-        
+
         # Ensure directories exist
         ensure_directories()
-        
+
         # For testing without processing the entire pipeline
         test_mode = False
-        
+
         if test_mode:
             # In test mode, we'll generate multiple fake shorts
             for i in range(video_processing.num_shorts):
                 final_path = f"media/final_{video_processing_id}_{i}.mp4"
-                
+
                 # Try to use an existing video file
                 if not os.path.exists(final_path):
                     # Find existing videos to copy
                     existing_videos = []
                     for vid_file in os.listdir('videos'):
                         if vid_file.endswith('.mp4'):
-                            existing_videos.append(os.path.join('videos', vid_file))
-                    
+                            existing_videos.append(
+                                os.path.join('videos', vid_file))
+
                     # If any videos exist, copy the first one
                     if existing_videos:
                         import shutil
                         shutil.copy(existing_videos[0], final_path)
-                        print(f"Copied {existing_videos[0]} to {final_path} for testing")
+                        print(
+                            f"Copied {existing_videos[0]} to {final_path} for testing")
                     else:
                         video_processing.error_message = f"Test file not found and no existing videos to copy."
                         video_processing.status = 'FAILED'
                         video_processing.save()
                         return
-                
+
                 # Upload to Cloudinary
-                upload_result = upload_to_cloudinary(final_path, f"user_{video_processing.username}_{i}")
+                upload_result = upload_to_cloudinary(
+                    final_path, f"user_{video_processing.username}_{i}")
                 if upload_result:
                     # Add this URL to the list
-                    video_processing.add_cloudinary_url(upload_result['url'], upload_result['public_id'])
-                    print(f"Uploaded short {i+1}/{video_processing.num_shorts} to Cloudinary: {upload_result['url']}")
+                    video_processing.add_cloudinary_url(
+                        upload_result['url'], upload_result['public_id'])
+                    print(
+                        f"Uploaded short {i+1}/{video_processing.num_shorts} to Cloudinary: {upload_result['url']}")
                 else:
                     video_processing.error_message = f"Failed to upload short {i+1} to Cloudinary"
                     video_processing.status = 'FAILED'
                     video_processing.save()
-            
+
             # If we get here, all uploads were successful
             video_processing.status = 'COMPLETED'
             video_processing.add_captions = "True"
             video_processing.save()
-             # Add captions to the video if enabled
+            # Add captions to the video if enabled
             if video_processing.add_captions:
                 try:
                     captioned_path = f"media/captioned/final_{video_processing_id}_{i}_captioned.mp4"
-                    
+
                     # Generate captions using the local Whisper model for better accuracy
                     add_captions(
                         final_path,
@@ -99,28 +109,32 @@ def process_video_task(video_processing_id):
                         use_local_whisper=True,
                         print_info=True
                     )
-                    
+
                     # Use the captioned video if it was created successfully
                     if os.path.exists(captioned_path):
                         final_path = captioned_path
                         print(f"Successfully added captions to short {i+1}")
                     else:
-                        print(f"Failed to add captions to short {i+1}, using original video")
+                        print(
+                            f"Failed to add captions to short {i+1}, using original video")
                 except Exception as e:
-                    print(f"Error adding captions to short {i+1}: {str(e)}, using original video")
+                    print(
+                        f"Error adding captions to short {i+1}: {str(e)}, using original video")
             else:
-                print(f"Captions disabled for this processing task, skipping caption generation")
-            
+                print(
+                    f"Captions disabled for this processing task, skipping caption generation")
+
             # Update Supabase with all URLs
             if video_processing.cloudinary_urls:
-                urls = [item['url'] for item in video_processing.cloudinary_urls]
+                urls = [item['url']
+                        for item in video_processing.cloudinary_urls]
                 update_supabase(
                     video_processing.username,
                     video_processing.youtube_url,
                     urls
                 )
             return
-        
+
         else:
             # Download the video
             vid = download_youtube_video(video_processing.youtube_url)
@@ -129,11 +143,11 @@ def process_video_task(video_processing_id):
                 video_processing.status = 'FAILED'
                 video_processing.save()
                 return
-                
+
             vid = vid.replace(".webm", ".mp4")
             video_processing.original_video_path = vid
             video_processing.save()
-            
+
             # Extract audio
             audio = extractAudio(vid)
             if not audio:
@@ -141,7 +155,7 @@ def process_video_task(video_processing_id):
                 video_processing.status = 'FAILED'
                 video_processing.save()
                 return
-                
+
             # Transcribe audio
             transcriptions = transcribeAudio(audio)
             if len(transcriptions) == 0:
@@ -149,41 +163,75 @@ def process_video_task(video_processing_id):
                 video_processing.status = 'FAILED'
                 video_processing.save()
                 return
-                
+
             trans_text = ""
             for text, start, end in transcriptions:
                 trans_text += (f"{start} - {end}: {text}")
+
+            # Get all highlights at once based on video length
+            all_highlights = GetAllHighlights(trans_text, video_path=vid)
+            print(all_highlights)
+            if not all_highlights:
+                video_processing.error_message = "Error extracting highlights"
+                video_processing.status = 'FAILED'
+                video_processing.save()
+                return
+
+            print(f"Successfully extracted {len(all_highlights)} highlights")
+
+            # Generate shorts for each highlight
             
-            # Generate multiple highlights
-            for i in range(video_processing.num_shorts):
-                print(f"Generating short {i+1}/{video_processing.num_shorts}")
-                
-                # Get highlight timestamps - we add a different prompt for each short to get variety
-                start, stop = GetHighlight(trans_text + f" (Generate highlight {i+1}, different from previous ones)")
-                if start == 0 or stop == 0:
+            for i in range(len(all_highlights)):
+                print(f"Generating short {i+1}/{len(all_highlights)}")
+
+                # Get the current highlight
+                current_start, current_stop, _ = all_highlights[i]
+
+                if current_start == 0 or current_stop == 0 or current_start == current_stop:
                     # Skip this highlight but continue with others
-                    print(f"Error in getting highlight {i+1}, skipping")
+                    print(
+                        f"Invalid highlight timestamps for highlight {i+1}, skipping")
                     continue
-                    
+
                 # Create output paths
                 output = f"media/Out_{i}.mp4"
-                
+
                 # Crop video to highlight section
-                crop_video(vid, output, start, stop)
-                
-                # Crop to vertical
+                crop_video(vid, output, current_start, current_stop)
                 cropped = f"media/cropped_{i}.mp4"
-                crop_to_vertical(output, cropped)
-                
-                # Combine videos
+                # Use the new face-tracking cropper
+                cropper = FaceTrackingVideoCropper(
+                    output_width=1080, output_height=1920)
                 final_path = f"media/final_{video_processing_id}_{i}.mp4"
+                cropper.process_video(output, cropped,
+                                      smoothing_window=20, padding_factor=2)
                 combine_videos(output, cropped, final_path)
-                
                 # Add captions to the video if enabled
                 if video_processing.add_captions:
                     try:
                         captioned_path = f"media/captioned/final_{video_processing_id}_{i}_captioned.mp4"
-                        
+
+                        # Pre-extract the audio to ensure it exists
+                        # The add_captions function is having issues with temporary audio files
+                        audio_path = "audio.wav"
+                        try:
+                            # Use subprocess for better error handling
+                            subprocess.run(
+                                ["ffmpeg", "-i", final_path, "-q:a",
+                                    "0", "-map", "a", audio_path, "-y"],
+                                check=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE
+                            )
+                            # Verify the audio file exists
+                            if not os.path.exists(audio_path):
+                                raise Exception(
+                                    f"Failed to extract audio to {audio_path}")
+                            print(
+                                f"Successfully extracted audio to {audio_path}")
+                        except Exception as audio_err:
+                            print(f"Error extracting audio: {str(audio_err)}")
+
                         # Generate captions using the local Whisper model for better accuracy
                         add_captions(
                             final_path,
@@ -200,34 +248,43 @@ def process_video_task(video_processing_id):
                             shadow_strength=1.0,
                             shadow_blur=0.1,
                             use_local_whisper=True,
-                            print_info=True
+                            print_info=True,
+                            custom_audio_path=audio_path
                         )
-                        
+
                         # Use the captioned video if it was created successfully
                         if os.path.exists(captioned_path):
                             final_path = captioned_path
-                            print(f"Successfully added captions to short {i+1}")
+                            print(
+                                f"Successfully added captions to short {i+1}")
                         else:
-                            print(f"Failed to add captions to short {i+1}, using original video")
+                            print(
+                                f"Failed to add captions to short {i+1}, using original video")
                     except Exception as e:
-                        print(f"Error adding captions to short {i+1}: {str(e)}, using original video")
+                        print(
+                            f"Error adding captions to short {i+1}: {str(e)}, using original video")
                 else:
-                    print(f"Captions disabled for this processing task, skipping caption generation")
-                
+                    print(
+                        f"Captions disabled for this processing task, skipping caption generation")
+
                 # Upload to Cloudinary
-                upload_result = upload_to_cloudinary(final_path, f"user_{video_processing.username}_{i}")
+                upload_result = upload_to_cloudinary(
+                    final_path, f"user_{video_processing.username}_{i}")
                 if upload_result:
                     # Add this URL to the list
-                    video_processing.add_cloudinary_url(upload_result['url'], upload_result['public_id'])
-                    print(f"Uploaded short {i+1}/{video_processing.num_shorts} to Cloudinary: {upload_result['url']}")
+                    video_processing.add_cloudinary_url(
+                        upload_result['url'], upload_result['public_id'])
+                    print(
+                        f"Uploaded short {i+1}/{all_highlights} to Cloudinary: {upload_result['url']}")
                 else:
-                    print(f"Failed to upload short {i+1} to Cloudinary, continuing with others")
-            
+                    print(
+                        f"Failed to upload short {i+1} to Cloudinary, continuing with others")
+
             # If we have at least one successful upload, mark as completed
             if video_processing.cloudinary_urls:
                 video_processing.status = 'COMPLETED'
                 video_processing.save()
-                
+
                 # # Update Supabase with all URLs
                 # urls = [item['url'] for item in video_processing.cloudinary_urls]
                 # update_supabase(
@@ -240,20 +297,22 @@ def process_video_task(video_processing_id):
                 video_processing.error_message = "Failed to create any shorts"
                 video_processing.status = 'FAILED'
                 video_processing.save()
-    
+
     except Exception as e:
         video_processing.status = 'FAILED'
         video_processing.error_message = str(e)
         video_processing.save()
 
+
 def start_processing_video(video_processing_id):
     """
     Start a background thread to process the video
     """
-    thread = threading.Thread(target=process_video_task, args=(video_processing_id,))
+    thread = threading.Thread(
+        target=process_video_task, args=(video_processing_id,))
     thread.daemon = True
     thread.start()
-    return thread 
+    return thread
 
 def is_cloudinary_url(url):
     """

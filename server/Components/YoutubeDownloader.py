@@ -21,13 +21,13 @@ def download_youtube_video(url):
 
         # Automatically select the highest quality stream with reasonable size
         selected_stream = None
-        # total = len(video_streams)
-        # selected_stream = video_streams[total - 1]
-        for stream in video_streams:
-            size = get_video_size(stream)
-            if size < 500:  # Less than 500 MB
-                selected_stream = stream
-                break
+        total = len(video_streams)
+        selected_stream = video_streams[total - 1]
+        # for stream in video_streams:
+        #     size = get_video_size(stream)
+        #     if size < 500:  # Less than 500 MB
+        #         selected_stream = stream
+        #         break
         
         # If no stream found with reasonable size, use the first one
         if not selected_stream and len(video_streams) > 0:

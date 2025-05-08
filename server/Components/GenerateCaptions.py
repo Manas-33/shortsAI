@@ -16,6 +16,7 @@ from Components.text_drawer import (
 shadow_cache = {}
 lines_cache = {}
 
+
 def fits_frame(line_count, font, font_size, stroke_width, frame_width):
     def fit_function(text):
         lines = calculate_lines(
@@ -27,6 +28,7 @@ def fits_frame(line_count, font, font_size, stroke_width, frame_width):
         )
         return len(lines["lines"]) <= line_count
     return fit_function
+
 
 def calculate_lines(text, font, font_size, stroke_width, frame_width):
     global lines_cache
@@ -46,7 +48,8 @@ def calculate_lines(text, font, font_size, stroke_width, frame_width):
     while word_index < len(words):
         word = words[word_index]
         line += word + " "
-        text_size = get_text_size_ex(line.strip(), font, font_size, stroke_width)
+        text_size = get_text_size_ex(
+            line.strip(), font, font_size, stroke_width)
         text_width = text_size[0]
         line_height = text_size[1]
 
@@ -58,7 +61,8 @@ def calculate_lines(text, font, font_size, stroke_width, frame_width):
             word_index += 1
         else:
             if not line_to_draw:
-                print(f"NOTICE: Word '{line.strip()}' is too long for the frame!")
+                print(
+                    f"NOTICE: Word '{line.strip()}' is too long for the frame!")
                 line_to_draw = {
                     "text": line.strip(),
                     "height": line_height,
@@ -83,10 +87,12 @@ def calculate_lines(text, font, font_size, stroke_width, frame_width):
 
     return data
 
+
 def ffmpeg(command):
     return subprocess.run(command, capture_output=True)
 
-def create_shadow(text: str, font_size: int, font: str, blur_radius: float, opacity: float=1.0):
+
+def create_shadow(text: str, font_size: int, font: str, blur_radius: float, opacity: float = 1.0):
     global shadow_cache
 
     arg_hash = hash((text, font_size, font, blur_radius, opacity))
@@ -101,6 +107,7 @@ def create_shadow(text: str, font_size: int, font: str, blur_radius: float, opac
 
     return shadow
 
+
 def get_font_path(font):
     if os.path.exists(font):
         return font
@@ -112,6 +119,7 @@ def get_font_path(font):
         raise FileNotFoundError(f"Font '{font}' not found")
 
     return font
+
 
 def detect_local_whisper(print_info):
     try:
@@ -126,35 +134,37 @@ def detect_local_whisper(print_info):
 
     return use_local_whisper
 
+
 def add_captions(
     video_file,
-    output_file = "with_transcript.mp4",
+    output_file="with_transcript.mp4",
 
-    font = "PoetsenOne-Regular.ttf",
-    font_size = 100,
-    font_color = "white",
+    font="PoetsenOne-Regular.ttf",
+    font_size=100,
+    font_color="white",
 
-    stroke_width = 2,
-    stroke_color = "black",
+    stroke_width=2,
+    stroke_color="black",
 
-    highlight_current_word = True,
-    word_highlight_color = "green",
+    highlight_current_word=True,
+    word_highlight_color="green",
 
-    line_count = 2,
-    fit_function = None,
+    line_count=2,
+    fit_function=None,
 
-    padding = 50,
-    position = ("center", "center"), # TODO: Implement this
+    padding=50,
+    position=("center", "center"),  # TODO: Implement this
 
-    shadow_strength = 1.0,
-    shadow_blur = 0.1,
+    shadow_strength=1.0,
+    shadow_blur=0.1,
 
-    print_info = False,
+    print_info=False,
 
-    initial_prompt = None,
-    segments = None,
+    initial_prompt=None,
+    segments=None,
 
-    use_local_whisper = "false",
+    use_local_whisper="false",
+    custom_audio_path=None,
 ):
     _start_time = time.time()
 
@@ -163,13 +173,33 @@ def add_captions(
     if print_info:
         print("Extracting audio...")
 
-    temp_audio_file = tempfile.NamedTemporaryFile(suffix=".wav").name
+    # Use custom audio path if provided, otherwise create a temporary file
+    if custom_audio_path:
+        temp_audio_file = custom_audio_path
+        if print_info:
+            print(f"Using provided audio file: {temp_audio_file}")
+    else:
+        # Create temporary file with a fixed path in the media directory to avoid temp directory issues
+        temp_audio_file = os.path.join(
+            'media', f"temp_audio_{os.path.basename(video_file)}.wav")
+        if print_info:
+            print(f"Creating audio file: {temp_audio_file}")
+
+    # Extract audio
     ffmpeg([
         'ffmpeg',
         '-y',
         '-i', video_file,
         temp_audio_file
     ])
+
+    # Verify the audio file exists
+    if not os.path.exists(temp_audio_file):
+        raise FileNotFoundError(
+            f"Failed to create audio file: {temp_audio_file}")
+
+    if print_info:
+        print(f"Audio file created: {temp_audio_file}")
 
     if segments is None:
         if print_info:
@@ -181,7 +211,8 @@ def add_captions(
         # if use_local_whisper:
         #     segments = transcriber.transcribe_locally(temp_audio_file, initial_prompt)
         # else:
-        segments = transcriber.transcribe_with_api(temp_audio_file, initial_prompt)
+        segments = transcriber.transcribe_with_api(
+            temp_audio_file, initial_prompt)
 
     if print_info:
         print("Generating video elements...")
@@ -221,7 +252,8 @@ def add_captions(
             captions_to_draw.append(caption)
 
         for current_index, caption in enumerate(captions_to_draw):
-            line_data = calculate_lines(caption["text"], font, font_size, stroke_width, text_bbox_width)
+            line_data = calculate_lines(
+                caption["text"], font, font_size, stroke_width, text_bbox_width)
 
             text_y_offset = video.h // 2 - line_data["height"] // 2
             pos_y = 0.7 * video.h
@@ -242,21 +274,26 @@ def add_captions(
                 shadow_left = shadow_strength
                 while shadow_left >= 1:
                     shadow_left -= 1
-                    shadow = create_shadow(line["text"], font_size, font, shadow_blur, opacity=1)
+                    shadow = create_shadow(
+                        line["text"], font_size, font, shadow_blur, opacity=1)
                     shadow = shadow.set_start(caption["start"])
-                    shadow = shadow.set_duration(caption["end"] - caption["start"])
+                    shadow = shadow.set_duration(
+                        caption["end"] - caption["start"])
                     shadow = shadow.set_position(pos)
                     clips.append(shadow)
 
                 if shadow_left > 0:
-                    shadow = create_shadow(line["text"], font_size, font, shadow_blur, opacity=shadow_left)
+                    shadow = create_shadow(
+                        line["text"], font_size, font, shadow_blur, opacity=shadow_left)
                     shadow = shadow.set_start(caption["start"])
-                    shadow = shadow.set_duration(caption["end"] - caption["start"])
+                    shadow = shadow.set_duration(
+                        caption["end"] - caption["start"])
                     shadow = shadow.set_position(pos)
                     clips.append(shadow)
 
                 # Create text
-                text = create_text_ex(word_list, font_size, font_color, font, stroke_color=stroke_color, stroke_width=stroke_width)
+                text = create_text_ex(word_list, font_size, font_color, font,
+                                      stroke_color=stroke_color, stroke_width=stroke_width)
                 text = text.set_start(caption["start"])
                 text = text.set_duration(caption["end"] - caption["start"])
                 text = text.set_position(pos)
@@ -269,7 +306,8 @@ def add_captions(
     generation_time = end_time - _start_time
 
     if print_info:
-        print(f"Generated in {generation_time//60:02.0f}:{generation_time%60:02.0f} ({len(clips)} clips)")
+        print(
+            f"Generated in {generation_time//60:02.0f}:{generation_time % 60:02.0f} ({len(clips)} clips)")
 
     if print_info:
         print("Rendering video...")
@@ -288,10 +326,12 @@ def add_captions(
     render_time = total_time - generation_time
 
     if print_info:
-        print(f"Generated in {generation_time//60:02.0f}:{generation_time%60:02.0f}")
-        print(f"Rendered in {render_time//60:02.0f}:{render_time%60:02.0f}")
-        print(f"Done in {total_time//60:02.0f}:{total_time%60:02.0f}")
-        
+        print(
+            f"Generated in {generation_time//60:02.0f}:{generation_time % 60:02.0f}")
+        print(f"Rendered in {render_time//60:02.0f}:{render_time % 60:02.0f}")
+        print(f"Done in {total_time//60:02.0f}:{total_time % 60:02.0f}")
+
+
 def main():
     if len(sys.argv) < 3:
         print(f"Usage: captacity <video_file> <output_file>")
@@ -300,7 +340,8 @@ def main():
     video_file = sys.argv[1]
     output_file = sys.argv[2]
 
-    add_captions(video_file, output_file, print_info=True)       
+    add_captions(video_file, output_file, print_info=True)
+
 
 if __name__ == "__main__":
     main()

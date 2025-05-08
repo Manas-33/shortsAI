@@ -121,9 +121,9 @@ def combine_videos(video_with_audio, video_without_audio, output_filename):
         audio = clip_with_audio.audio
 
         combined_clip = clip_without_audio.set_audio(audio)
-
-        global Fps
-        combined_clip.write_videofile(output_filename, codec='libx264', audio_codec='aac', fps=Fps, preset='medium', bitrate='3000k')
+        cap = cv2.VideoCapture(video_without_audio, cv2.CAP_FFMPEG) 
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        combined_clip.write_videofile(output_filename, codec='libx264', audio_codec='aac', fps=fps, preset='medium', bitrate='3000k')
         print(f"Combined video saved successfully as {output_filename}")
     
     except Exception as e:
