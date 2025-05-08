@@ -11,8 +11,11 @@
 
 # Virtual environment
 venv/
+env/
 
 # Environment variables
 .env
 
 videos
+
+db.sqlite3
